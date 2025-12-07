@@ -1,0 +1,47 @@
+name: Weekly Groww App Review Pulse
+
+on:
+  schedule:
+    # Runs every Monday at 3 AM UTC (8:30 AM IST)
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    # Allows manual triggering from the GitHub Actions UI
+
+jobs:
+  build-and-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' # Or your preferred Python version
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Review Intelligence Pipeline
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }} # Optional, defaults to sender if not set
+      run: python main.py
+
+    # Optional: Upload generated CSVs as artifacts for debugging/auditing
+    - name: Upload Raw Reviews CSV
+      uses: actions/upload-artifact@v4
+      with:
+        name: raw-reviews-csv
+        path: groww_relevant_reviews.csv
+        if-no-files-found: ignore
+
+    - name: Upload Classified Reviews CSV
+      uses: actions/upload-artifact@v4
+      with:
+        name: classified-reviews-csv
+        path: weekly_classified.csv
+        if-no-files-found: ignore
