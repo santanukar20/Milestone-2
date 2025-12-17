@@ -13,8 +13,11 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# --- CRITICAL FIX: USE THE MODEL YOU HAVE ACCESS TO ---
-MODEL_NAME = "gemini-2.5-flash"
+# --- CRITICAL FIX: USE A LOWER-THROUGHPUT MODEL TO AVOID RATE LIMITS ---
+# Changed from "gemini-2.5-flash" to the lighter variant to reduce quota pressure
+MODEL_NAME = "gemini-2.5-flash-lite"
+# Fallback option if the above model is not available in this project/account
+FALLBACK_MODEL = "gemini-2.0-flash-lite-preview"
 
 def generate_theme_summary(theme_name, reviews):
     """
@@ -33,12 +36,22 @@ def generate_theme_summary(theme_name, reviews):
     {review_text}
     """
     
-    try:
-        model = genai.GenerativeModel(MODEL_NAME)
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        return f"Could not generate summary due to error: {e}"
+    tried_fallback = False
+    current_model = MODEL_NAME
+    while True:
+        try:
+            model = genai.GenerativeModel(current_model)
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            err_str = str(e).lower()
+            # If model not found or unsupported, try fallback once
+            if (not tried_fallback) and ("not found" in err_str or "not supported" in err_str or "404" in err_str):
+                tried_fallback = True
+                current_model = FALLBACK_MODEL
+                print(f"Model {MODEL_NAME} not available; retrying with fallback model {FALLBACK_MODEL}...")
+                continue
+            return f"Could not generate summary due to error: {e}"
 
 def generate_html_report(pulse_data):
     """
